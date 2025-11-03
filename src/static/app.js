@@ -27,11 +27,35 @@ document.addEventListener("DOMContentLoaded", () => {
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
           <p><strong>Participants:</strong></p>
           <ul class="participants">
-            ${details.participants.map(participant => `<li>${participant}</li>`).join('')}
+            ${details.participants.map(participant => `<li>${participant} <button class="remove-participant" data-activity="${name}" data-email="${participant}" title="Unregister ${participant}" aria-label="Unregister ${participant}">🗑️</button></li>`).join('')}
           </ul>
         `;
 
         activitiesList.appendChild(activityCard);
+
+        // Handle remove/unregister clicks for this activity card
+        activityCard.addEventListener('click', async (e) => {
+          if (!e.target.classList.contains('remove-participant')) return;
+
+          const activity = e.target.dataset.activity;
+          const email = e.target.dataset.email;
+
+          try {
+            const res = await fetch(`/activities/${encodeURIComponent(activity)}/unregister?email=${encodeURIComponent(email)}`, { method: 'POST' });
+            const result = await res.json();
+
+            if (res.ok) {
+              // Refresh activities to update availability and participants
+              await fetchActivities();
+            } else {
+              console.error('Failed to unregister:', result);
+              alert(result.detail || 'Failed to unregister participant');
+            }
+          } catch (err) {
+            console.error('Error unregistering participant:', err);
+            alert('Failed to unregister participant');
+          }
+        });
 
         // Add option to select dropdown
         const option = document.createElement("option");
@@ -64,11 +88,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (response.ok) {
         messageDiv.textContent = result.message;
-        messageDiv.className = "success";
+        // apply both message and success classes so CSS styles apply
+        messageDiv.className = "message success";
         signupForm.reset();
+
+        // Refresh the activities list immediately so the new participant appears
+        await fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
-        messageDiv.className = "error";
+        messageDiv.className = "message error";
       }
 
       messageDiv.classList.remove("hidden");
